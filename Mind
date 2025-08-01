@@ -324,7 +324,7 @@ local function updateLighting()
     end
 end
 
--- ESP principal: box 2D dinâmico pelo tamanho do player!
+-- ESP principal: fixo igual Chams (sempre visível)
 RunService.RenderStepped:Connect(function()
     updateLighting()
     DrawingFOV.Visible = ESP_Aimbot.Config.FOVCircle
@@ -382,15 +382,13 @@ RunService.RenderStepped:Connect(function()
                     local points = {}
                     for x = -1,1,2 do for y = -1,1,2 do for z = -1,1,2 do
                         local corner = cf * Vector3.new(size.X/2 * x, size.Y/2 * y, size.Z/2 * z)
-                        local pos, onScreen = Camera:WorldToViewportPoint(corner)
-                        table.insert(points, {pos, onScreen})
+                        local pos = Camera:WorldToViewportPoint(corner)
+                        table.insert(points, {pos, true}) -- sempre true, fixo igual chams
                     end end end
 
                     -- Encontra o menor/maior X e Y na tela (abraça o corpo em qualquer distância)
                     local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
-                    local allVisible = true
                     for _, pt in ipairs(points) do
-                        if not pt[2] then allVisible = false end
                         minX = math.min(minX, pt[1].X)
                         minY = math.min(minY, pt[1].Y)
                         maxX = math.max(maxX, pt[1].X)
@@ -400,54 +398,51 @@ RunService.RenderStepped:Connect(function()
                     local width = maxX - minX
                     local height = maxY - minY
 
-                    if allVisible then
-                        if ESP_Aimbot.Config.BoxESP then
-                            drawCornerBox(box.CornerBoxes, minX, minY, maxX, maxY, DrawingFOV.Color)
-                        else
-                            hideCornerBox(box.CornerBoxes)
-                        end
+                    -- Sempre desenha (fixo igual chams)
+                    if ESP_Aimbot.Config.BoxESP then
+                        drawCornerBox(box.CornerBoxes, minX, minY, maxX, maxY, DrawingFOV.Color)
+                    else
+                        hideCornerBox(box.CornerBoxes)
+                    end
 
-                        box.Name.Visible = ESP_Aimbot.Config.NameESP
-                        box.Name.Text = player.Name
-                        box.Name.Position = Vector2.new(midX, minY - 18)
-                        box.Name.Color = DrawingFOV.Color
+                    box.Name.Visible = ESP_Aimbot.Config.NameESP
+                    box.Name.Text = player.Name
+                    box.Name.Position = Vector2.new(midX, minY - 18)
+                    box.Name.Color = DrawingFOV.Color
 
-                        box.Tracer.Visible = ESP_Aimbot.Config.TracerESP
-                        box.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                        box.Tracer.To = Vector2.new(midX, maxY)
-                        box.Tracer.Color = DrawingFOV.Color
+                    box.Tracer.Visible = ESP_Aimbot.Config.TracerESP
+                    box.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                    box.Tracer.To = Vector2.new(midX, maxY)
+                    box.Tracer.Color = DrawingFOV.Color
 
-                        local ratio = humanoid.Health / humanoid.MaxHealth
-                        box.Health.Visible = ESP_Aimbot.Config.HealthBar
-                        if ESP_Aimbot.Config.HealthBarRGB then
-                            box.Health.Color = getRainbowColor(ESP_Aimbot.Config.RGBSpeed)
-                        else
-                            box.Health.Color = ratio > 0.7 and Color3.new(0,1,0) or ratio > 0.3 and Color3.new(1,1,0) or Color3.new(1,0,0)
-                        end
-                        box.Health.From = Vector2.new(minX - 6, maxY)
-                        box.Health.To = Vector2.new(minX - 6, maxY - height * ratio)
+                    local ratio = humanoid.Health / humanoid.MaxHealth
+                    box.Health.Visible = ESP_Aimbot.Config.HealthBar
+                    if ESP_Aimbot.Config.HealthBarRGB then
+                        box.Health.Color = getRainbowColor(ESP_Aimbot.Config.RGBSpeed)
+                    else
+                        box.Health.Color = ratio > 0.7 and Color3.new(0,1,0) or ratio > 0.3 and Color3.new(1,1,0) or Color3.new(1,0,0)
+                    end
+                    box.Health.From = Vector2.new(minX - 6, maxY)
+                    box.Health.To = Vector2.new(minX - 6, maxY - height * ratio)
 
-                        local dist = (Camera.CFrame.Position - part.Position).Magnitude
-                        box.Distance.Visible = ESP_Aimbot.Config.ShowDistance
-                        box.Distance.Text = ("[%.1f m]"):format(dist)
-                        box.Distance.Position = Vector2.new(midX, maxY + 14)
-                        box.Distance.Color = DrawingFOV.Color
+                    local dist = (Camera.CFrame.Position - part.Position).Magnitude
+                    box.Distance.Visible = ESP_Aimbot.Config.ShowDistance
+                    box.Distance.Text = ("[%.1f m]"):format(dist)
+                    box.Distance.Position = Vector2.new(midX, maxY + 14)
+                    box.Distance.Color = DrawingFOV.Color
 
-                        local weaponName = ""
-                        if ESP_Aimbot.Config.ShowWeapon then
-                            for _, v in ipairs(char:GetChildren()) do
-                                if v:IsA("Tool") or (v:IsA("Model") and (v:FindFirstChild("GunScript") or v:FindFirstChild("Handle"))) then
-                                    weaponName = v.Name; break
-                                end
+                    local weaponName = ""
+                    if ESP_Aimbot.Config.ShowWeapon then
+                        for _, v in ipairs(char:GetChildren()) do
+                            if v:IsA("Tool") or (v:IsA("Model") and (v:FindFirstChild("GunScript") or v:FindFirstChild("Handle"))) then
+                                weaponName = v.Name; break
                             end
                         end
-                        box.Weapon.Visible = ESP_Aimbot.Config.ShowWeapon and weaponName ~= ""
-                        box.Weapon.Text = weaponName
-                        box.Weapon.Position = Vector2.new(midX, minY - 32)
-                        box.Weapon.Color = DrawingFOV.Color
-                    else
-                        hideESP(box)
                     end
+                    box.Weapon.Visible = ESP_Aimbot.Config.ShowWeapon and weaponName ~= ""
+                    box.Weapon.Text = weaponName
+                    box.Weapon.Position = Vector2.new(midX, minY - 32)
+                    box.Weapon.Color = DrawingFOV.Color
                 else
                     hideESP(box)
                 end
