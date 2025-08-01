@@ -7,6 +7,7 @@ local Lighting = game:GetService("Lighting")
 local LocalPlayer = Players.LocalPlayer
 local UserInputService = game:GetService("UserInputService")
 
+-- Variáveis de controle extras
 local InfiniteJumpEnabled = false
 local NoclipEnabled = false
 
@@ -27,7 +28,7 @@ local ESP_Aimbot = {
         RGBMode = false,
         RGBSpeed = 0.6,
         HealthBarRGB = false,
-        TargetPart = "HumanoidRootPart",
+        TargetPart = "Head",
         HitboxEnabled = false,
         HitboxSize = 2,
         XRAYEnabled = false,
@@ -46,6 +47,7 @@ local ESP_Aimbot = {
     OriginalBrightness = Lighting.Brightness,
 }
 
+-- Funções utilitárias e principais (mantidas do seu código)
 local function getRainbowColor(speed)
     local t = tick() * (speed or 1)
     return Color3.fromHSV((t % 5) / 5, 1, 1)
@@ -53,7 +55,10 @@ end
 
 local function getPart(char, prefer)
     prefer = prefer or ESP_Aimbot.Config.TargetPart
-    for _, name in ipairs({prefer, "HumanoidRootPart", "UpperTorso", "Torso", "Head"}) do
+    if char:FindFirstChild(prefer) and char[prefer]:IsA("BasePart") then
+        return char[prefer]
+    end
+    for _, name in ipairs({"Head","UpperTorso","Torso","HumanoidRootPart"}) do
         if char:FindFirstChild(name) and char[name]:IsA("BasePart") then
             return char[name]
         end
@@ -138,16 +143,7 @@ end
 
 local function createESPElements()
     return {
-        CornerBoxes = {
-            TL1 = newDrawing("Line", {Visible = false, Thickness = 2}),
-            TL2 = newDrawing("Line", {Visible = false, Thickness = 2}),
-            TR1 = newDrawing("Line", {Visible = false, Thickness = 2}),
-            TR2 = newDrawing("Line", {Visible = false, Thickness = 2}),
-            BL1 = newDrawing("Line", {Visible = false, Thickness = 2}),
-            BL2 = newDrawing("Line", {Visible = false, Thickness = 2}),
-            BR1 = newDrawing("Line", {Visible = false, Thickness = 2}),
-            BR2 = newDrawing("Line", {Visible = false, Thickness = 2}),
-        },
+        Box = newDrawing("Square", {Visible = false, Thickness = 2, Filled = false}),
         Name = newDrawing("Text", {Visible = false, Center = true, Outline = true, Size = 16, Font = 2}),
         Tracer = newDrawing("Line", {Visible = false, Thickness = 1}),
         Health = newDrawing("Line", {Visible = false, Thickness = 4}),
@@ -158,74 +154,8 @@ end
 
 local function hideESP(data)
     if not data then return end
-    if data.CornerBoxes then
-        for _, obj in pairs(data.CornerBoxes) do
-            obj.Visible = false
-        end
-    end
-    for k, obj in pairs(data) do
-        if k ~= "CornerBoxes" and obj.Visible ~= nil then
-            obj.Visible = false
-        end
-    end
-end
-
-local function drawCornerBox(cornerLines, minX, minY, maxX, maxY, color, thickness)
-    local width, height = maxX - minX, maxY - minY
-    local offset = math.clamp(width / 4, 10, 32)
-    local t = thickness or 2
-    cornerLines.TL1.From = Vector2.new(minX, minY)
-    cornerLines.TL1.To = Vector2.new(minX+offset, minY)
-    cornerLines.TL1.Color = color
-    cornerLines.TL1.Thickness = t
-    cornerLines.TL1.Visible = true
-
-    cornerLines.TL2.From = Vector2.new(minX, minY)
-    cornerLines.TL2.To = Vector2.new(minX, minY+offset)
-    cornerLines.TL2.Color = color
-    cornerLines.TL2.Thickness = t
-    cornerLines.TL2.Visible = true
-
-    cornerLines.TR1.From = Vector2.new(maxX, minY)
-    cornerLines.TR1.To = Vector2.new(maxX-offset, minY)
-    cornerLines.TR1.Color = color
-    cornerLines.TR1.Thickness = t
-    cornerLines.TR1.Visible = true
-
-    cornerLines.TR2.From = Vector2.new(maxX, minY)
-    cornerLines.TR2.To = Vector2.new(maxX, minY+offset)
-    cornerLines.TR2.Color = color
-    cornerLines.TR2.Thickness = t
-    cornerLines.TR2.Visible = true
-
-    cornerLines.BL1.From = Vector2.new(minX, maxY)
-    cornerLines.BL1.To = Vector2.new(minX+offset, maxY)
-    cornerLines.BL1.Color = color
-    cornerLines.BL1.Thickness = t
-    cornerLines.BL1.Visible = true
-
-    cornerLines.BL2.From = Vector2.new(minX, maxY)
-    cornerLines.BL2.To = Vector2.new(minX, maxY-offset)
-    cornerLines.BL2.Color = color
-    cornerLines.BL2.Thickness = t
-    cornerLines.BL2.Visible = true
-
-    cornerLines.BR1.From = Vector2.new(maxX, maxY)
-    cornerLines.BR1.To = Vector2.new(maxX-offset, maxY)
-    cornerLines.BR1.Color = color
-    cornerLines.BR1.Thickness = t
-    cornerLines.BR1.Visible = true
-
-    cornerLines.BR2.From = Vector2.new(maxX, maxY)
-    cornerLines.BR2.To = Vector2.new(maxX, maxY-offset)
-    cornerLines.BR2.Color = color
-    cornerLines.BR2.Thickness = t
-    cornerLines.BR2.Visible = true
-end
-
-local function hideCornerBox(cornerLines)
-    for _, line in pairs(cornerLines) do
-        line.Visible = false
+    for _, obj in pairs(data) do
+        obj.Visible = false
     end
 end
 
@@ -324,7 +254,6 @@ local function updateLighting()
     end
 end
 
--- ESP principal: fixo igual Chams (sempre visível)
 RunService.RenderStepped:Connect(function()
     updateLighting()
     DrawingFOV.Visible = ESP_Aimbot.Config.FOVCircle
@@ -369,80 +298,72 @@ RunService.RenderStepped:Connect(function()
 
         local char = player.Character
         local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-        local part = char and getPart(char)
-        if player ~= LocalPlayer and char and part then
+        if player ~= LocalPlayer and char and char:FindFirstChild("HumanoidRootPart") then
             if humanoid and humanoid.Health > 0 and ESP_Aimbot.Config.ESPEnabled then
                 if not ESP_Aimbot.ESPObjects[player] then ESP_Aimbot.ESPObjects[player] = createESPElements() end
                 local box = ESP_Aimbot.ESPObjects[player]
-
-                -- Pega a caixa do corpo em 3D para projetar!
                 local success, cf, size = pcall(char.GetBoundingBox, char)
                 if success then
-                    -- Cálculo dos pontos extremos do bounding box (8 vértices)
-                    local points = {}
+                    local points, visible = {}, true
                     for x = -1,1,2 do for y = -1,1,2 do for z = -1,1,2 do
                         local corner = cf * Vector3.new(size.X/2 * x, size.Y/2 * y, size.Z/2 * z)
-                        local pos = Camera:WorldToViewportPoint(corner)
-                        table.insert(points, {pos, true}) -- sempre true, fixo igual chams
+                        local pos, onScreen = Camera:WorldToViewportPoint(corner)
+                        if not onScreen then visible = false end
+                        table.insert(points, Vector2.new(pos.X, pos.Y))
                     end end end
-
-                    -- Encontra o menor/maior X e Y na tela (abraça o corpo em qualquer distância)
-                    local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
-                    for _, pt in ipairs(points) do
-                        minX = math.min(minX, pt[1].X)
-                        minY = math.min(minY, pt[1].Y)
-                        maxX = math.max(maxX, pt[1].X)
-                        maxY = math.max(maxY, pt[1].Y)
-                    end
-                    local midX = (minX + maxX)/2
-                    local width = maxX - minX
-                    local height = maxY - minY
-
-                    -- Sempre desenha (fixo igual chams)
-                    if ESP_Aimbot.Config.BoxESP then
-                        drawCornerBox(box.CornerBoxes, minX, minY, maxX, maxY, DrawingFOV.Color)
-                    else
-                        hideCornerBox(box.CornerBoxes)
-                    end
-
-                    box.Name.Visible = ESP_Aimbot.Config.NameESP
-                    box.Name.Text = player.Name
-                    box.Name.Position = Vector2.new(midX, minY - 18)
-                    box.Name.Color = DrawingFOV.Color
-
-                    box.Tracer.Visible = ESP_Aimbot.Config.TracerESP
-                    box.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                    box.Tracer.To = Vector2.new(midX, maxY)
-                    box.Tracer.Color = DrawingFOV.Color
-
-                    local ratio = humanoid.Health / humanoid.MaxHealth
-                    box.Health.Visible = ESP_Aimbot.Config.HealthBar
-                    if ESP_Aimbot.Config.HealthBarRGB then
-                        box.Health.Color = getRainbowColor(ESP_Aimbot.Config.RGBSpeed)
-                    else
-                        box.Health.Color = ratio > 0.7 and Color3.new(0,1,0) or ratio > 0.3 and Color3.new(1,1,0) or Color3.new(1,0,0)
-                    end
-                    box.Health.From = Vector2.new(minX - 6, maxY)
-                    box.Health.To = Vector2.new(minX - 6, maxY - height * ratio)
-
-                    local dist = (Camera.CFrame.Position - part.Position).Magnitude
-                    box.Distance.Visible = ESP_Aimbot.Config.ShowDistance
-                    box.Distance.Text = ("[%.1f m]"):format(dist)
-                    box.Distance.Position = Vector2.new(midX, maxY + 14)
-                    box.Distance.Color = DrawingFOV.Color
-
-                    local weaponName = ""
-                    if ESP_Aimbot.Config.ShowWeapon then
-                        for _, v in ipairs(char:GetChildren()) do
-                            if v:IsA("Tool") or (v:IsA("Model") and (v:FindFirstChild("GunScript") or v:FindFirstChild("Handle"))) then
-                                weaponName = v.Name; break
+                    if visible then
+                        local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
+                        for _, pt in pairs(points) do
+                            minX = math.min(minX, pt.X)
+                            minY = math.min(minY, pt.Y)
+                            maxX = math.max(maxX, pt.X)
+                            maxY = math.max(maxY, pt.Y)
+                        end
+                        local width, height = maxX - minX, maxY - minY
+                        local midX = minX + width / 2
+                        box.Box.Visible = ESP_Aimbot.Config.BoxESP
+                        box.Box.Position = Vector2.new(minX, minY)
+                        box.Box.Size = Vector2.new(width, height)
+                        box.Box.Color = DrawingFOV.Color
+                        box.Name.Visible = ESP_Aimbot.Config.NameESP
+                        box.Name.Text = player.Name
+                        box.Name.Position = Vector2.new(midX, minY - 18)
+                        box.Name.Color = DrawingFOV.Color
+                        box.Tracer.Visible = ESP_Aimbot.Config.TracerESP
+                        box.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        box.Tracer.To = Vector2.new(midX, maxY)
+                        box.Tracer.Color = DrawingFOV.Color
+                        local ratio = humanoid.Health / humanoid.MaxHealth
+                        box.Health.Visible = ESP_Aimbot.Config.HealthBar
+                        if ESP_Aimbot.Config.HealthBarRGB then
+                            box.Health.Color = getRainbowColor(ESP_Aimbot.Config.RGBSpeed)
+                        else
+                            box.Health.Color = ratio > 0.7 and Color3.new(0,1,0) or ratio > 0.3 and Color3.new(1,1,0) or Color3.new(1,0,0)
+                        end
+                        box.Health.From = Vector2.new(minX - 5, maxY)
+                        box.Health.To = Vector2.new(minX - 5, maxY - height * ratio)
+                        -- Distância
+                        local dist = (Camera.CFrame.Position - char.HumanoidRootPart.Position).Magnitude
+                        box.Distance.Visible = ESP_Aimbot.Config.ShowDistance
+                        box.Distance.Text = ("[%.1f m]"):format(dist)
+                        box.Distance.Position = Vector2.new(midX, maxY + 16)
+                        box.Distance.Color = DrawingFOV.Color
+                        -- Arma
+                        local weaponName = ""
+                        if ESP_Aimbot.Config.ShowWeapon then
+                            for _, v in ipairs(char:GetChildren()) do
+                                if v:IsA("Tool") or (v:IsA("Model") and (v:FindFirstChild("GunScript") or v:FindFirstChild("Handle"))) then
+                                    weaponName = v.Name; break
+                                end
                             end
                         end
+                        box.Weapon.Visible = ESP_Aimbot.Config.ShowWeapon and weaponName ~= ""
+                        box.Weapon.Text = weaponName
+                        box.Weapon.Position = Vector2.new(midX, minY - 34)
+                        box.Weapon.Color = DrawingFOV.Color
+                    else
+                        hideESP(box)
                     end
-                    box.Weapon.Visible = ESP_Aimbot.Config.ShowWeapon and weaponName ~= ""
-                    box.Weapon.Text = weaponName
-                    box.Weapon.Position = Vector2.new(midX, minY - 32)
-                    box.Weapon.Color = DrawingFOV.Color
                 else
                     hideESP(box)
                 end
@@ -464,19 +385,14 @@ Players.PlayerRemoving:Connect(function(plr)
     clearChams(plr)
     if ESP_Aimbot.ESPObjects[plr] then
         for _, obj in pairs(ESP_Aimbot.ESPObjects[plr]) do
-            if type(obj) == "table" then
-                for _, sub in pairs(obj) do
-                    if sub.Remove then sub:Remove() end
-                end
-            elseif obj.Remove then
-                obj:Remove()
-            end
+            if obj.Remove then obj:Remove() end
         end
         ESP_Aimbot.ESPObjects[plr] = nil
     end
     clearChams(plr)
 end)
 
+-- Noclip sempre ativo quando habilitado
 RunService.Stepped:Connect(function()
     if NoclipEnabled and LocalPlayer.Character then
         for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
@@ -487,12 +403,14 @@ RunService.Stepped:Connect(function()
     end
 end)
 
+-- Pulo Infinito
 UserInputService.JumpRequest:Connect(function()
     if InfiniteJumpEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
         LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
     end
 end)
 
+-- INTERFACE RAYFIELD
 local Window = Rayfield:CreateWindow({
     Name = "🌍 Scripts Heaven Loader",
     LoadingTitle = "Iniciando Scripts Heaven",
@@ -518,12 +436,7 @@ Tab:CreateSlider({Name = "FOV", Range = {10, 300}, Increment = 1, CurrentValue =
 Tab:CreateToggle({Name = "FOV Circle", CurrentValue = false, Callback = function(x) ESP_Aimbot.Config.FOVCircle = x end})
 Tab:CreateToggle({Name = "RGB Modo", CurrentValue = false, Callback = function(x) ESP_Aimbot.Config.RGBMode = x end})
 Tab:CreateSlider({Name = "RGB Speed", Range = {0.05, 2}, Increment = 0.01, CurrentValue = 0.6, Callback = function(x) ESP_Aimbot.Config.RGBSpeed = x end})
-Tab:CreateDropdown({
-    Name = "Target Part",
-    Options = {"HumanoidRootPart","UpperTorso","Torso","Head"},
-    CurrentOption = "HumanoidRootPart",
-    Callback = function(x) ESP_Aimbot.Config.TargetPart = x end
-})
+Tab:CreateDropdown({Name = "Target Part", Options={"Head","UpperTorso","Torso","HumanoidRootPart"}, CurrentOption = "Head", Callback = function(x) ESP_Aimbot.Config.TargetPart = x end})
 Tab:CreateToggle({Name = "Hitbox", CurrentValue = false, Callback = function(x) ESP_Aimbot.Config.HitboxEnabled = x end})
 Tab:CreateSlider({Name = "Hitbox Size", Range = {2, 10}, Increment = 0.1, CurrentValue = 2, Callback = function(x) ESP_Aimbot.Config.HitboxSize = x end})
 Tab:CreateToggle({Name = "XRAY", CurrentValue = false, Callback = function(x) ESP_Aimbot.Config.XRAYEnabled = x end})
@@ -531,22 +444,14 @@ Tab:CreateSlider({Name = "XRAY Transparency", Range = {0, 1}, Increment = 0.01, 
 Tab:CreateToggle({Name = "Iluminação Ambiente", CurrentValue = false, Callback = function(x) ESP_Aimbot.Config.AmbientLighting = x end})
 Tab:CreateSlider({Name = "Brilho Ambiente", Range = {0, 10}, Increment = 0.1, CurrentValue = 2.5, Callback = function(x) ESP_Aimbot.Config.AmbientBrightness = x end})
 
-Tab:CreateSlider({
-    Name = "Força do Aimbot",
-    Range = {0, 1},
-    Increment = 0.01,
-    CurrentValue = 0.15,
-    Callback = function(val)
-        ESP_Aimbot.Config.AimSmoothness = val
-    end
-})
-
+-- ADICIONADOS: Noclip e Pulo Infinito (no mesmo padrão!)
 Tab:CreateToggle({
     Name = "Noclip",
     CurrentValue = false,
     Callback = function(x)
         NoclipEnabled = x
         if not x and LocalPlayer.Character then
+            -- Ao desativar, volta colisão ao padrão
             for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
                 if v:IsA("BasePart") then
                     v.CanCollide = true
@@ -563,3 +468,5 @@ Tab:CreateToggle({
         InfiniteJumpEnabled = x
     end
 })
+
+-- (Fim do script)
